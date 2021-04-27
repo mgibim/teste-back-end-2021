@@ -2,102 +2,85 @@
 
 namespace App\Http\Controllers;
 
-use Validator;
 use App\Models\Product;
-use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\File;
+use App\Http\Requests\ProductRequest;
+use App\Transformers\ProductTransformer;
 
 class ProductController extends Controller
 {
 
+    public function index()
+    {
+        
+        return responder()->success(Product::all(), ProductTransformer::class)->respond(200);
+
+    }
+    
     public function show($id)
     {
         
         $product = Product::find($id);
         
         if (!$product) {
-            return responder()->error(404, 'Produto não encontrado')->respond();
+            return responder()->error(404, 'Produto não encontrado')->respond(404);
         }
         
         return responder()->success([
             'message' => 'Produto encontrado',
-            'product' => $product,
-        ])->respond();
+            'product' => (new ProductTransformer)->transform($product)
+        ])->respond(200);
         
     }
     
-    public function store(Request $request)
+    public function store(ProductRequest $request)
     {
         
         $input = $request->all();
         
-        $validator = Validator::make($input, [
-            'name'   => 'required',
-            'price'  => 'required|numeric',
-            'weight' => 'sometimes|numeric',
-            'image'  => 'sometimes|image|mimes:jpeg,png,jpg,gif,svg|max:2048'
-        ]);
-            
-        if($validator->fails()){
-            
-            return responder()
-                ->error(422, 'Ocorreu um erro de validação')
-                ->data(['fields' => $validator->errors()])
-                ->respond();
-        }
-
         if ($request->hasFile('image')) {
-            $path  = $request->file('image')->store('public/uploads');
-            $input['image'] = $path;
+            
+            $filename = $request->image->hashName();
+            $request->file('image')->storeAs('public/uploads', $filename);
+            
+            $input['image'] = $filename;
         }
         
         $product = Product::create($input);
         
         if ($product) {
-            return responder()->success([
+            return responder(201)->success([
                 'success' => true,
                 'message' => "Produto criado com sucesso",
-            ])->respond();
+                'product' => (new ProductTransformer)->transform($product)
+            ])->respond(201);
         }
 
         return responder()
-            ->error(500, 'Ocorreu um erro ao inserir o produto')
-            ->respond();
+            ->error(401, 'Ocorreu um erro ao inserir o produto')
+            ->respond(401);
         
     }
 
-    public function update(Request $request, $id)
+    public function update(ProductRequest $request, $id)
     {
         $product = Product::find($id);
 
         if(!$product) {
-            return responder()->error(404, 'Produto não encontrado')->respond();
+            return responder()->error(404, 'Produto não encontrado')->respond(404);
         }
 
         $input = $request->all();
-        
-        $validator = Validator::make($input, [
-            'name'   => 'required',
-            'price'  => 'required|numeric',
-            'weight' => 'sometimes|numeric',
-            'image'  => 'sometimes|image|mimes:jpeg,png,jpg,gif,svg|max:2048'
-        ]);
 
         if ($request->hasFile('image')) {
-            // Exclui a imagem do produto atual
-            File::delete(storage_path('app/') . $product->image);
+            // Exclui a imagem do produto anterior
+            File::delete(storage_path('app/public/uploads/') . $product->image);
 
-            $path  = $request->file('image')->store('public/uploads');
-            $input['image'] = $path;
-        }
-
-        if($validator->fails()){
+            $filename = $request->image->hashName();
+            $request->file('image')->storeAs('public/uploads', $filename);
             
-            return responder()
-                ->error(422, 'Ocorreu um erro de validação')
-                ->data(['fields' => $validator->errors()])
-                ->respond();
+            $input['image'] = $filename;
         }
 
         $product->fill($input);
@@ -106,7 +89,8 @@ class ProductController extends Controller
         return responder()->success([
             'success' => true,
             'message' => "Produto atualizado com sucesso",
-        ])->respond();
+            'product' => (new ProductTransformer)->transform($product)
+        ])->respond(200);
     }
 
     public function destroy($id)
@@ -115,11 +99,11 @@ class ProductController extends Controller
         $product = Product::find($id);
         
         if (!$product) {
-            return responder()->error(404, 'Produto não encontrado')->respond();
+            return responder()->error(404, 'Produto não encontrado')->respond(404);
         }
 
         // Exclui a imagem do produto
-        File::delete(storage_path('app/') . $product->image);
+        File::delete(storage_path('app/public/uploads/') . $product->image);
 
         $result = $product->delete();
 
@@ -127,12 +111,12 @@ class ProductController extends Controller
             return responder()->success([
                 'success' => true,
                 'message' => "Produto excluído com sucesso",
-            ])->respond();
+            ])->respond(200);
         }
 
         return responder()
             ->error(404, 'Ocorreu um erro ao excluir o produto')
-            ->respond();
+            ->respond(404);
     }
 
 }

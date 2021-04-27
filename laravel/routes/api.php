@@ -11,6 +11,7 @@ Route::group(['middleware' => ['jwt.verify']], function() {
     Route::get('auth/logout', [ApiController::class, 'logout']);
     Route::get('auth/me', [ApiController::class, 'me']);
     
+    Route::get('product/index', [ProductController::class, 'index']);
     Route::get('product/show/{id}', [ProductController::class, 'show']);
     Route::post('product/create', [ProductController::class, 'store']);
     Route::put('product/update/{id}',  [ProductController::class, 'update']);

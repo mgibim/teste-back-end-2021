@@ -178,5 +178,7 @@ return [
         'year'                  => 'ano',
         'email'                 => 'e-mail',
         'remember'              => 'lembrar-me',
+        'price'                 => 'preço',
+        'weight'                => 'peso'
     ],
 ];
