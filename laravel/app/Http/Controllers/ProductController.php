@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\Products\destroyProductAction;
+use App\Actions\Products\storeProductAction;
+use App\Actions\Products\updateProductAction;
 use App\Models\Product;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\File;
@@ -34,89 +37,62 @@ class ProductController extends Controller
         
     }
     
-    public function store(ProductRequest $request)
+    public function store(ProductRequest $request, storeProductAction $action)
     {
-        
-        $input = $request->all();
-        
-        if ($request->hasFile('image')) {
-            
-            $filename = $request->image->hashName();
-            $request->file('image')->storeAs('public/uploads', $filename);
-            
-            $input['image'] = $filename;
-        }
-        
-        $product = Product::create($input);
-        
-        if ($product) {
+        try {
+
+            $product = $action->execute($request);
+
             return responder(201)->success([
                 'success' => true,
                 'message' => "Produto criado com sucesso",
                 'product' => (new ProductTransformer)->transform($product)
             ])->respond(201);
-        }
 
-        return responder()
-            ->error(401, 'Ocorreu um erro ao inserir o produto')
-            ->respond(401);
+        } catch (\Throwable $th) {
+
+            return responder()->error(401, 'Ocorreu um erro ao inserir o produto')->respond(401);
+
+        }
         
     }
 
-    public function update(ProductRequest $request, $id)
+    public function update(ProductRequest $request, $id, updateProductAction $action)
     {
-        $product = Product::find($id);
+        
+        try {
 
-        if(!$product) {
+            $product = $action->execute($id, $request);
+
+            return responder()->success([
+                'success' => true,
+                'message' => "Produto atualizado com sucesso",
+                'product' => (new ProductTransformer)->transform($product)
+            ])->respond(200);
+
+        } catch (\Throwable $th) {
+
             return responder()->error(404, 'Produto não encontrado')->respond(404);
+
         }
 
-        $input = $request->all();
-
-        if ($request->hasFile('image')) {
-            // Exclui a imagem do produto anterior
-            File::delete(storage_path('app/public/uploads/') . $product->image);
-
-            $filename = $request->image->hashName();
-            $request->file('image')->storeAs('public/uploads', $filename);
-            
-            $input['image'] = $filename;
-        }
-
-        $product->fill($input);
-        $product->save();
-
-        return responder()->success([
-            'success' => true,
-            'message' => "Produto atualizado com sucesso",
-            'product' => (new ProductTransformer)->transform($product)
-        ])->respond(200);
     }
 
-    public function destroy($id)
+    public function destroy($id, destroyProductAction $action)
     {
         
-        $product = Product::find($id);
-        
-        if (!$product) {
-            return responder()->error(404, 'Produto não encontrado')->respond(404);
-        }
+        try {
+            $action->execute($id);
 
-        // Exclui a imagem do produto
-        File::delete(storage_path('app/public/uploads/') . $product->image);
-
-        $result = $product->delete();
-
-        if ($result) {
             return responder()->success([
                 'success' => true,
                 'message' => "Produto excluído com sucesso",
             ])->respond(200);
+
+        } catch (\Throwable $th) {
+            return responder()->error(404, 'Produto não encontrado')->respond(404);
         }
 
-        return responder()
-            ->error(404, 'Ocorreu um erro ao excluir o produto')
-            ->respond(404);
     }
 
 }
